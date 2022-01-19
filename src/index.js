@@ -5,14 +5,14 @@ const child_process = require("child_process")
 class Proxy extends EventEmitter {
     constructor() {
         super()
-        this._dgram = dgram.createSocket()
+        this._dgram = dgram.createSocket("udp4")
         this._workers = new Map()
     }
 
-    listen(port, destination, allow = () => {true}) {
+    listen(destination, dport, port, allow = () => {true}) {
         // Argument checking
-        if (!(port && destination)) return new Error("Missing arguments")
-        if (typeof port !== "number" || typeof destination !== "string") return new Error(`"port" should be typeof "number", and "destination" should be typeof "string"`)
+        if (!(port && destination && dport)) return new Error("Missing arguments")
+        if (typeof dport !== "number" || typeof port !== "number" || typeof destination !== "string") return new Error(`"port" should be typeof "number", and "destination" should be typeof "string"`)
         if (typeof allow !== "function") return new Error(`"allow" should be typeof "function"`)
 
         this._dgram.on("message", (msg, rinfo) => {
@@ -23,7 +23,7 @@ class Proxy extends EventEmitter {
             let worker = this._workers.get(`${rinfo.address}:${rinfo.port}`) || null
             if (!worker) {
                 // Spawn a new worker 
-                worker = child_process.fork(`${__dirname}/worker.js`, [rinfo.address, rinfo.port, destination, port])
+                worker = child_process.fork(`${__dirname}/worker.js`, [rinfo.address, rinfo.port, destination, dport])
 
                 // Handle IPC messages from the worker
                 worker.on("message", (message) => {
@@ -32,8 +32,8 @@ class Proxy extends EventEmitter {
                             console.log(`[Manager] ${rinfo.address}:${rinfo.port} has successfully bound to ${message.data}`)
                             break;
                         case "DATA": 
-                            console.log(`[${rinfo.address}:${rinfo.port} -> Manager] [Data]`)
-                            this._dgram.send(message.data, message.port, message.address)
+                            console.log(`[${rinfo.address}:${rinfo.port} <- ${destination}:${dport}] [Data]`)
+                            this._dgram.send(Buffer.from(message.data), message.port, message.address)
                             break;
                         case "ERR": 
                             console.log(`[${rinfo.address}:${rinfo.port}] Error: ${message.error}`)
@@ -50,7 +50,7 @@ class Proxy extends EventEmitter {
                 console.log(`[Manager] Spawned a new worker: [${rinfo.address}:${rinfo.port}]`)
             } else {
                 // Send data directly to worker
-                console.log(`[${rinfo.address}:${rinfo.port} <- Manager] [Data]`)
+                console.log(`[${rinfo.address}:${rinfo.port} -> ${destination}:${dport}] [Data]`)
                 worker.send({ content: "DATA", data: msg })
             }
         })
