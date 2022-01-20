@@ -9,39 +9,33 @@ class Proxy extends EventEmitter {
         this._workers = new Map()
     }
 
-    listen(destination, dport, port, allow = () => {true}) {
-        // Argument checking
-        if (!(port && destination && dport)) return new Error("Missing arguments")
-        if (typeof dport !== "number" || typeof port !== "number" || typeof destination !== "string") return new Error(`"port" should be typeof "number", and "destination" should be typeof "string"`)
+    workers() {
+        return this._workers.size
+    }
+
+    listen(daddress, dport, port, allow = () => {true}) {
+        if (!(port && daddress && dport)) return new Error("Missing arguments")
+        if (typeof dport !== "number" || typeof port !== "number" || typeof daddress !== "string") return new Error("Incorrect argument types")
         if (typeof allow !== "function") return new Error(`"allow" should be typeof "function"`)
 
         this._dgram.on("message", (msg, rinfo) => {
-            // Deny connections from IPv6 addresses
-            if (rinfo.family !== "IPv4") return
-            if (!allow(rinfo)) return console.log(`[Manager] ${rinfo.address}:${rinfo.port} was blocked manually.`)
+            if (!allow(rinfo)) return this.emit("blocked", rinfo)
 
             let worker = this._workers.get(`${rinfo.address}:${rinfo.port}`) || null
             if (!worker) {
-                // Spawn a new worker 
-                worker = child_process.fork(`${__dirname}/worker.js`, [rinfo.address, rinfo.port, destination, dport])
+                worker = child_process.fork(`${__dirname}/worker.js`, [rinfo.address, rinfo.port, daddress, dport])
 
-                // Handle IPC messages from the worker
                 worker.on("message", (message) => {
                     switch (message.content) {
                         case "BOUND": 
-                            console.log(`[Manager] ${rinfo.address}:${rinfo.port} has successfully bound to ${message.data}`)
+                            this.emit("worker_bind", rinfo, message.data)
                             break;
                         case "DATA": 
+                            this.emit("data_out", rinfo, Buffer.from(message.data))
                             this._dgram.send(Buffer.from(message.data), message.port, message.address)
                             break;
-                        case "ERR": 
-                            console.log(`[${rinfo.address}:${rinfo.port}] Error: ${message.error}`)
-                            console.log(`[Manager] ${rinfo.address}:${rinfo.port} encountered an error. Closing.`)
-                            worker.kill()
-                            this._workers.delete(`${rinfo.address}:${rinfo.port}`)
-                            break;
                         case "CLOSE": 
-                            console.log(`[Manager] ${rinfo.address}:${rinfo.port} is idle. Closing.`)
+                            this.emit("worker_idle", rinfo)
                             worker.kill()
                             this._workers.delete(`${rinfo.address}:${rinfo.port}`)
                             break;
@@ -51,9 +45,10 @@ class Proxy extends EventEmitter {
                 })
 
                 this._workers.set(`${rinfo.address}:${rinfo.port}`, worker)
-                console.log(`[Manager] Spawned a new worker: ${rinfo.address}:${rinfo.port}`)
+                this.emit("worker_spawn", rinfo)
             }
 
+            this.emit("data_in", rinfo, msg)
             worker.send({ content: "DATA", data: msg })
         })
 

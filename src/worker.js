@@ -5,20 +5,22 @@ const raddress = process.argv[2]
 const rport = process.argv[3]
 const destination = process.argv[4]
 const port = process.argv[5]
-
-let activity = 30
-let stop = false
+const idle = process.argv[6] || 30
+let activity = idle
 
 setInterval(() => {
-    if (stop) return
-    if (activity <= 0) {stop = true; process.send({ content: "CLOSE" })}
-    else activity--
+    if (activity < 0) return
+    if (activity == 0) {
+        activity = -1
+        process.send({ content: "CLOSE" })
+    } else activity--
 }, 1000)
 
 process.on("message", (message) => {
+    if (activity < 0) return
     switch (message.content) {
         case "DATA": 
-            activity = 30
+            activity = idle
             socket.send(Buffer.from(message.data), port, destination)
             break;
         default:
@@ -27,7 +29,8 @@ process.on("message", (message) => {
 })
 
 socket.on("message", (msg, rinfo) => {
-    activity = 30
+    if (activity < 0) return
+    activity = idle
     process.send({ content: "DATA", data: msg, address: raddress, port: rport })
 })
 

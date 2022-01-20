@@ -1,5 +1,5 @@
 # node-dgram-proxy
-An automatically-scaling UDP proxy.
+An automatically "scaling" UDP proxy.
 
 ## Usage
 `<insert documentation here>`
