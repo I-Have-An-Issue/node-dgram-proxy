@@ -32,12 +32,16 @@ class Proxy extends EventEmitter {
                             console.log(`[Manager] ${rinfo.address}:${rinfo.port} has successfully bound to ${message.data}`)
                             break;
                         case "DATA": 
-                            console.log(`[${rinfo.address}:${rinfo.port} <- ${destination}:${dport}] [Data]`)
                             this._dgram.send(Buffer.from(message.data), message.port, message.address)
                             break;
                         case "ERR": 
                             console.log(`[${rinfo.address}:${rinfo.port}] Error: ${message.error}`)
-                            console.log(`[Manager] ${rinfo.address}:${rinfo.port} encountered an error. Terminate.`)
+                            console.log(`[Manager] ${rinfo.address}:${rinfo.port} encountered an error. Closing.`)
+                            worker.kill()
+                            this._workers.delete(`${rinfo.address}:${rinfo.port}`)
+                            break;
+                        case "CLOSE": 
+                            console.log(`[Manager] ${rinfo.address}:${rinfo.port} is idle. Closing.`)
                             worker.kill()
                             this._workers.delete(`${rinfo.address}:${rinfo.port}`)
                             break;
@@ -47,12 +51,10 @@ class Proxy extends EventEmitter {
                 })
 
                 this._workers.set(`${rinfo.address}:${rinfo.port}`, worker)
-                console.log(`[Manager] Spawned a new worker: [${rinfo.address}:${rinfo.port}]`)
-            } else {
-                // Send data directly to worker
-                console.log(`[${rinfo.address}:${rinfo.port} -> ${destination}:${dport}] [Data]`)
-                worker.send({ content: "DATA", data: msg })
+                console.log(`[Manager] Spawned a new worker: ${rinfo.address}:${rinfo.port}`)
             }
+
+            worker.send({ content: "DATA", data: msg })
         })
 
         return this._dgram.bind(port)

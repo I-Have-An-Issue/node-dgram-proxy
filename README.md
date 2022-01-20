@@ -6,4 +6,4 @@ An automatically-scaling UDP proxy.
 
 ## Concerns
 Someone with a large block of IPv4 addresses can spam the "manager", and make the proxy crash from running out of resources.  
-"Workers" will only last for 5 seconds, but if the attacker continues to send garbage data, the "worker" will not terminate.
+"Workers" will only last for 30 seconds, but if the attacker continues to send garbage data, the "worker" will not terminate.
