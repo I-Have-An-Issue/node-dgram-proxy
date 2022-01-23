@@ -3,8 +3,9 @@ const dgram = require("dgram")
 const child_process = require("child_process")
 
 class Proxy extends EventEmitter {
-    constructor() {
+    constructor(options = {}) {
         super()
+        this._options = options
         this._dgram = dgram.createSocket("udp4")
         this._workers = new Map()
         this._ips = new Map()
@@ -29,8 +30,8 @@ class Proxy extends EventEmitter {
             let worker = this._workers.get(`${rinfo.address}:${rinfo.port}`) || null
             let ipcount = this._ips.get(rinfo.address) || 0
             if (!worker) {
-                if (ipcount >= 5) return this.emit("blocked_max_conn", rinfo)
-                this._ips.set(rinfo.address, ipcount++)
+                if (ipcount >= this.options.maxConnections || 5) return this.emit("blocked_max_conn", rinfo)
+                this._ips.set(rinfo.address, ipcount+1)
                 worker = child_process.fork(`${__dirname}/worker.js`, [rinfo.address, rinfo.port, daddress, dport])
 
                 worker.on("message", (message) => {
@@ -47,7 +48,7 @@ class Proxy extends EventEmitter {
                             this.emit("worker_idle", rinfo)
                             worker.kill()
                             this._workers.delete(`${rinfo.address}:${rinfo.port}`)
-                            this._ips.set(rinfo.address, ipcount--)
+                            this._ips.set(rinfo.address, ipcount-1)
                             break;
                         default: 
                             break;

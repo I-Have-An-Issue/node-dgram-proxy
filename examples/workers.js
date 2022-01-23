@@ -2,7 +2,7 @@ const crypto = require("crypto")
 const dgram = require("dgram")
 const clients = []
 
-for (let i = 0; i < 4; i++) {
+for (let i = 0; i < 10; i++) {
     let client = dgram.createSocket("udp4")
     clients.push(client)
     client.bind(0, () => {
