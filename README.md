@@ -9,6 +9,3 @@
 
 ## Usage
 `<insert documentation here>`
-
-## Security
-- Can be crashed with ease with a decent chunk of IPv4 addresses

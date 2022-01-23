@@ -7,10 +7,15 @@ class Proxy extends EventEmitter {
         super()
         this._dgram = dgram.createSocket("udp4")
         this._workers = new Map()
+        this._ips = new Map()
     }
 
     workers() {
         return this._workers.size
+    }
+
+    ips() {
+        return Object.fromEntries(this._ips)
     }
 
     listen(daddress, dport, port, allow = () => { return true }) {
@@ -19,10 +24,13 @@ class Proxy extends EventEmitter {
         if (typeof allow !== "function") return new Error(`"allow" should be typeof "function"`)
 
         this._dgram.on("message", (msg, rinfo) => {
-            if (!allow(rinfo)) return this.emit("blocked", rinfo)
+            if (!allow(rinfo)) return this.emit("blocked_manual", rinfo)
 
             let worker = this._workers.get(`${rinfo.address}:${rinfo.port}`) || null
+            let ipcount = this._ips.get(rinfo.address) || 0
             if (!worker) {
+                if (ipcount >= 5) return this.emit("blocked_max_conn", rinfo)
+                this._ips.set(rinfo.address, ipcount++)
                 worker = child_process.fork(`${__dirname}/worker.js`, [rinfo.address, rinfo.port, daddress, dport])
 
                 worker.on("message", (message) => {
@@ -38,6 +46,7 @@ class Proxy extends EventEmitter {
                             this.emit("worker_idle", rinfo)
                             worker.kill()
                             this._workers.delete(`${rinfo.address}:${rinfo.port}`)
+                            this._ips.set(rinfo.address, (this._ips.get(rinfo.address) || 0)--)
                             break;
                         default: 
                             break;
