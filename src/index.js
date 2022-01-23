@@ -13,7 +13,7 @@ class Proxy extends EventEmitter {
         return this._workers.size
     }
 
-    listen(daddress, dport, port, allow = () => {true}) {
+    listen(daddress, dport, port, allow = () => { return true }) {
         if (!(port && daddress && dport)) return new Error("Missing arguments")
         if (typeof dport !== "number" || typeof port !== "number" || typeof daddress !== "string") return new Error("Incorrect argument types")
         if (typeof allow !== "function") return new Error(`"allow" should be typeof "function"`)
