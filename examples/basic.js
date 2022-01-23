@@ -27,8 +27,7 @@ server.bind(5727)
 let _ = 10
 client.bind(0, () => {
     setInterval(() => {
-        if (_ == 0) return
-        _--
+        if (_ == 0) return; _--
         client.send("hello from localhost!", 8888, "127.0.0.1")
     }, 3500)
 })
