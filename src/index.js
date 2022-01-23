@@ -43,10 +43,11 @@ class Proxy extends EventEmitter {
                             this._dgram.send(Buffer.from(message.data), message.port, message.address)
                             break;
                         case "CLOSE": 
+                            ipcount = this._ips.get(rinfo.address) || 0
                             this.emit("worker_idle", rinfo)
                             worker.kill()
                             this._workers.delete(`${rinfo.address}:${rinfo.port}`)
-                            this._ips.set(rinfo.address, (this._ips.get(rinfo.address) || 0)--)
+                            this._ips.set(rinfo.address, ipcount--)
                             break;
                         default: 
                             break;
