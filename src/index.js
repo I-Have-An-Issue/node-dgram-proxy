@@ -30,7 +30,7 @@ class Proxy extends EventEmitter {
             let worker = this._workers.get(`${rinfo.address}:${rinfo.port}`) || null
             let ipcount = this._ips.get(rinfo.address) || 0
             if (!worker) {
-                if (ipcount >= this._options.maxConnections || 5) return this.emit("blocked_max_conn", rinfo)
+                if (ipcount >= (this._options.maxConnections || 5)) return this.emit("blocked_max_conn", rinfo)
                 this._ips.set(rinfo.address, ipcount+1)
                 worker = child_process.fork(`${__dirname}/worker.js`, [rinfo.address, rinfo.port, daddress, dport])
 
